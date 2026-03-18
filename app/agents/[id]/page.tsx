@@ -11,6 +11,7 @@ import { db } from "@/lib/db"
 import ScoreRadar from "@/components/ScoreRadar"
 import ScoreBadge from "@/components/ScoreBadge"
 import CompareToggle from "./CompareToggle"
+import { WatchlistButton } from "@/components/WatchlistButton"
 import {
   avgScore,
   PRICING_LABELS,
@@ -113,6 +114,8 @@ export default async function AgentProfilePage({ params }: Props) {
               </a>
               {/* Client component for compare toggle (needs context) */}
               <CompareToggle agent={agent} />
+              {/* Client component for watchlist toggle (needs session) */}
+              <WatchlistButton agentId={agent.id} />
             </div>
           </div>
 

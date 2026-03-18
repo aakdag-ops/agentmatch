@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useEffect, useCallback, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import SearchInput from "@/components/SearchInput"
 import AgentCard from "@/components/AgentCard"
 import FilterSidebar from "@/components/FilterSidebar"
@@ -17,6 +18,7 @@ interface SearchResult {
 function SearchPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const { data: session } = useSession()
 
   const q = searchParams.get("q") ?? ""
   const [filters, setFilters] = useState<SearchFilters>({})
@@ -26,6 +28,7 @@ function SearchPageContent() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
 
   const abortRef = useRef<AbortController | null>(null)
 
@@ -72,7 +75,22 @@ function SearchPageContent() {
   }, [filters])
 
   function handleSearch(query: string) {
+    setSaveStatus("idle")
     router.push(`/search?q=${encodeURIComponent(query)}`)
+  }
+
+  async function handleSaveSearch() {
+    if (!session?.user) {
+      router.push("/login?callbackUrl=" + encodeURIComponent(window.location.href))
+      return
+    }
+    setSaveStatus("saving")
+    const res = await fetch("/api/saved-searches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: q, filters }),
+    })
+    setSaveStatus(res.ok ? "saved" : "idle")
   }
 
   const hasActiveFilters = Object.values(filters).some((v) =>
@@ -131,12 +149,27 @@ function SearchPageContent() {
                   </p>
                 )}
               </div>
-              <button
-                className="sm:hidden flex items-center gap-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5"
-                onClick={() => setSidebarOpen(true)}
-              >
-                Filters {hasActiveFilters && <span className="w-2 h-2 rounded-full bg-blue-600" />}
-              </button>
+              <div className="flex items-center gap-2">
+                {q && total > 0 && (
+                  <button
+                    onClick={handleSaveSearch}
+                    disabled={saveStatus !== "idle"}
+                    className={`hidden sm:flex items-center gap-1.5 text-sm border rounded-lg px-3 py-1.5 transition-colors ${
+                      saveStatus === "saved"
+                        ? "border-amber-300 text-amber-600 bg-amber-50"
+                        : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    {saveStatus === "saved" ? "★ Saved" : saveStatus === "saving" ? "Saving…" : "☆ Save search"}
+                  </button>
+                )}
+                <button
+                  className="sm:hidden flex items-center gap-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5"
+                  onClick={() => setSidebarOpen(true)}
+                >
+                  Filters {hasActiveFilters && <span className="w-2 h-2 rounded-full bg-blue-600" />}
+                </button>
+              </div>
             </div>
 
             {/* Intent tags */}

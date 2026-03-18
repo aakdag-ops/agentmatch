@@ -64,6 +64,12 @@ export default function NavBar() {
               >
                 Dashboard
               </Link>
+              <Link
+                href="/watchlist"
+                className="text-sm text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                ★ Watchlist
+              </Link>
               <button
                 onClick={() => signOut({ callbackUrl: "/" })}
                 className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
