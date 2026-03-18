@@ -1,0 +1,286 @@
+// AgentMatch — Prisma Schema
+// PostgreSQL + pgvector (Supabase managed)
+//
+// KEY INVARIANTS:
+//   1. agents.weaknesses is NOT NULL + non-empty (enforced at DB level via
+//      constraints.sql CHECK constraint AND at API layer via Zod validation)
+//   2. Ranking logic lives in lib/search/ranking.ts — completely isolated
+//      from any featured/sponsored commercial logic
+//   3. Agent profile pages are SSR — enforced via Next.js route segment config
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector", schema: "extensions")]
+}
+
+// ---------------------------------------------------------------------------
+// ENUMS
+// ---------------------------------------------------------------------------
+
+enum BusinessSize {
+  solo
+  smb
+  midmarket
+  enterprise
+}
+
+enum PricingTier {
+  free
+  freemium
+  paid
+  enterprise
+}
+
+enum AgentStatus {
+  active
+  deprecated
+  under_review
+}
+
+enum UserRole {
+  user
+  admin
+}
+
+enum SubmissionStatus {
+  pending
+  accepted
+  rejected
+}
+
+enum ReviewStatus {
+  pending
+  approved
+  rejected
+}
+
+// ---------------------------------------------------------------------------
+// AGENTS — core agent profile record (FR-04)
+// ---------------------------------------------------------------------------
+
+model Agent {
+  id          String      @id @default(uuid()) @db.Uuid
+  name        String
+  vendor      String
+  tagline     String      @db.VarChar(160)
+  description String      // markdown
+
+  // Taxonomy
+  categoryTags     String[] // e.g. ["invoice processing", "customer support"]
+  industryTags     String[] // e.g. ["finance", "healthcare"]
+  businessSizeFit  BusinessSize[]
+
+  // Capabilities & weaknesses
+  // weaknesses: Json NOT NULL — DB-level: constraints.sql adds CHECK jsonb_array_length > 0
+  // API-level: Zod schema enforces non-empty array before any write
+  capabilities Json
+  weaknesses   Json // REQUIRED — rejection of null/empty enforced via constraints.sql + Zod
+
+  // Pricing
+  pricingTier  PricingTier
+  pricingNotes String?
+
+  // Integrations
+  integrationTypes String[] // ["api", "zapier", "n8n", "native", "no-code"]
+
+  // Test scores (0.0 – 10.0) — see Section 9 of PRD for methodology
+  scoreAccuracy       Float?
+  scoreLatency        Float?
+  scoreReliability    Float?
+  scoreEaseOfUse      Float?
+  scoreCostEfficiency Float?
+
+  // Testing metadata
+  lastTestedAt DateTime?
+  testVersion  String?
+
+  // External
+  externalUrl String
+  status      AgentStatus @default(active)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  embedding     AgentEmbedding?
+  scores        AgentScore[]
+  savedBy       SavedAgent[]
+  reviews       Review[]
+  flags         Flag[]
+
+  @@map("agents")
+}
+
+// ---------------------------------------------------------------------------
+// AGENT EMBEDDINGS — pgvector index for semantic search (FR-02)
+// ---------------------------------------------------------------------------
+
+model AgentEmbedding {
+  id        String   @id @default(uuid()) @db.Uuid
+  agentId   String   @unique @db.Uuid
+
+  // 1536-dimension vector for text-embedding-3-small
+  // Unsupported type — managed via raw SQL migrations
+  embedding Unsupported("vector(1536)")?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@map("agent_embeddings")
+}
+
+// ---------------------------------------------------------------------------
+// AGENT SCORES — versioned score history (Section 9.2)
+// ---------------------------------------------------------------------------
+
+model AgentScore {
+  id        String   @id @default(uuid()) @db.Uuid
+  agentId   String   @db.Uuid
+  scoreType String   // accuracy | latency | reliability | ease_of_use | cost_efficiency
+  value     Float
+  testedAt  DateTime
+  version   String   // product version tested against
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@map("agent_scores")
+}
+
+// ---------------------------------------------------------------------------
+// CATEGORIES — taxonomy for browse navigation (Appendix A)
+// ---------------------------------------------------------------------------
+
+model Category {
+  id   String  @id @default(uuid()) @db.Uuid
+  name String  @unique
+  slug String  @unique
+  icon String?
+
+  @@map("categories")
+}
+
+// ---------------------------------------------------------------------------
+// USERS — auth table
+// ---------------------------------------------------------------------------
+
+model User {
+  id             String   @id @default(uuid()) @db.Uuid
+  email          String   @unique
+  hashedPassword String?  // null for OAuth-only users
+  name           String?
+  image          String?
+  oauthProvider  String?  // "google" | null
+  oauthId        String?
+  role           UserRole @default(user)
+  emailVerified  Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  savedAgents   SavedAgent[]
+  savedSearches SavedSearch[]
+  reviews       Review[]
+  flags         Flag[]
+
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// SAVED AGENTS — user watchlist (FR-08)
+// ---------------------------------------------------------------------------
+
+model SavedAgent {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  agentId   String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, agentId])
+  @@map("saved_agents")
+}
+
+// ---------------------------------------------------------------------------
+// SAVED SEARCHES — serialised query + filter state (FR-08)
+// Phase 2: alerts when bookmarked agent scores change
+// ---------------------------------------------------------------------------
+
+model SavedSearch {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  query     String
+  filters   Json     // serialised FilterState
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("saved_searches")
+}
+
+// ---------------------------------------------------------------------------
+// SUBMISSIONS — public agent submission queue (FR-10)
+// ---------------------------------------------------------------------------
+
+model Submission {
+  id             String           @id @default(uuid()) @db.Uuid
+  agentName      String
+  agentUrl       String
+  category       String
+  submitterEmail String
+  status         SubmissionStatus @default(pending)
+  notes          String?          // admin review notes
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("submissions")
+}
+
+// ---------------------------------------------------------------------------
+// REVIEWS — user reviews (FR-05, Phase 2 — table created in MVP)
+// ---------------------------------------------------------------------------
+
+model Review {
+  id      String       @id @default(uuid()) @db.Uuid
+  userId  String       @db.Uuid
+  agentId String       @db.Uuid
+  rating  Int          // 1–5
+  body    String?
+  status  ReviewStatus @default(pending)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@map("reviews")
+}
+
+// ---------------------------------------------------------------------------
+// FLAGS — content accuracy flags (FR-09)
+// ---------------------------------------------------------------------------
+
+model Flag {
+  id      String @id @default(uuid()) @db.Uuid
+  userId  String @db.Uuid
+  agentId String @db.Uuid
+  reason  String
+
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@map("flags")
+}
