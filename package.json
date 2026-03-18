@@ -1,0 +1,41 @@
+{
+  "name": "agentmatch",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "db:seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts",
+    "db:setup": "prisma migrate deploy && psql $DATABASE_URL -f prisma/constraints.sql"
+  },
+  "dependencies": {
+    "next": "14.2.29",
+    "react": "^18",
+    "react-dom": "^18",
+    "@prisma/client": "^5.22.0",
+    "next-auth": "^4.24.11",
+    "bcryptjs": "^2.4.3",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@types/bcryptjs": "^2.4.6",
+    "prisma": "^5.22.0",
+    "ts-node": "^10.9.2",
+    "tailwindcss": "^3.4.14",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.29"
+  }
+}
