@@ -22,6 +22,9 @@ const securityHeaders = [
 ]
 
 const nextConfig = {
+  // Required for Docker — produces a standalone server.js bundle
+  output: "standalone",
+
   images: {
     // Allow any remote image host (agent logos sourced from vendors)
     remotePatterns: [
