@@ -12,6 +12,7 @@ import ScoreRadar from "@/components/ScoreRadar"
 import ScoreBadge from "@/components/ScoreBadge"
 import CompareToggle from "./CompareToggle"
 import { WatchlistButton } from "@/components/WatchlistButton"
+import { AgentStructuredData } from "@/components/AgentStructuredData"
 import {
   avgScore,
   PRICING_LABELS,
@@ -72,6 +73,8 @@ export default async function AgentProfilePage({ params }: Props) {
   const pricingColor = PRICING_COLORS[agent.pricingTier] ?? "bg-gray-100 text-gray-600"
 
   return (
+    <>
+      <AgentStructuredData agent={agent} />
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-gray-400 mb-6">
@@ -312,5 +315,6 @@ export default async function AgentProfilePage({ params }: Props) {
         </main>
       </div>
     </div>
+    </>
   )
 }

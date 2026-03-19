@@ -8,6 +8,7 @@ import AgentCard from "@/components/AgentCard"
 import FilterSidebar from "@/components/FilterSidebar"
 import type { SearchFilters } from "@/lib/search/index"
 import type { Agent } from "@prisma/client"
+import { useAnalytics } from "@/lib/useAnalytics"
 
 interface SearchResult {
   agent: Agent
@@ -19,6 +20,7 @@ function SearchPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { data: session } = useSession()
+  const { track } = useAnalytics()
 
   const q = searchParams.get("q") ?? ""
   const [filters, setFilters] = useState<SearchFilters>({})
@@ -51,6 +53,7 @@ function SearchPageContent() {
         setResults(data.results ?? [])
         setTotal(data.total ?? 0)
         setIntent(data.intent ?? null)
+        track({ event: "search_submitted", query, resultCount: data.total ?? 0 })
       } catch (e: unknown) {
         if ((e as Error).name !== "AbortError") {
           setError("Search failed. Please try again.")
