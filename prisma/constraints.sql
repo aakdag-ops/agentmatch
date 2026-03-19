@@ -44,11 +44,11 @@ ALTER TABLE agents
 ALTER TABLE agents
   ADD CONSTRAINT scores_range_check
   CHECK (
-    (score_accuracy       IS NULL OR (score_accuracy       >= 0 AND score_accuracy       <= 10))
-    AND (score_latency    IS NULL OR (score_latency        >= 0 AND score_latency        <= 10))
-    AND (score_reliability IS NULL OR (score_reliability   >= 0 AND score_reliability    <= 10))
-    AND (score_ease_of_use IS NULL OR (score_ease_of_use   >= 0 AND score_ease_of_use    <= 10))
-    AND (score_cost_efficiency IS NULL OR (score_cost_efficiency >= 0 AND score_cost_efficiency <= 10))
+    ("scoreAccuracy"       IS NULL OR ("scoreAccuracy"       >= 0 AND "scoreAccuracy"       <= 10))
+    AND ("scoreLatency"    IS NULL OR ("scoreLatency"        >= 0 AND "scoreLatency"        <= 10))
+    AND ("scoreReliability" IS NULL OR ("scoreReliability"   >= 0 AND "scoreReliability"    <= 10))
+    AND ("scoreEaseOfUse"  IS NULL OR ("scoreEaseOfUse"      >= 0 AND "scoreEaseOfUse"      <= 10))
+    AND ("scoreCostEfficiency" IS NULL OR ("scoreCostEfficiency" >= 0 AND "scoreCostEfficiency" <= 10))
   );
 
 -- ============================================================

@@ -99,19 +99,68 @@ function averageScore(agent: Agent): number {
   return scores.reduce((a, b) => a + b, 0) / scores.length
 }
 
+// ── Keyword fallback (used when OpenAI is unavailable) ──────────────────────
+async function keywordFallback(
+  query: string,
+  topN: number
+): Promise<Array<{ agentId: string; similarity: number }>> {
+  const terms = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((t) => t.length > 2)
+  if (terms.length === 0) {
+    const all = await db.agent.findMany({
+      where: { status: "active" },
+      select: { id: true },
+      take: topN,
+    })
+    return all.map((a) => ({ agentId: a.id, similarity: 0.5 }))
+  }
+  const agents = await db.agent.findMany({
+    where: {
+      status: "active",
+      OR: terms.flatMap((t) => [
+        { name: { contains: t, mode: "insensitive" as const } },
+        { tagline: { contains: t, mode: "insensitive" as const } },
+        { description: { contains: t, mode: "insensitive" as const } },
+        { categoryTags: { has: t } },
+      ]),
+    },
+    take: topN,
+  })
+  return agents.map((a) => ({ agentId: a.id, similarity: 0.6 }))
+}
+
 export async function search(req: SearchRequest): Promise<SearchResponse> {
   const { query, filters = {}, page = 1, limit = 20 } = req
   const clampedLimit = Math.min(limit, 20)
   const offset = (page - 1) * clampedLimit
 
-  // ── Step 1: Intent extraction (parallel with embedding) ──────────────────
-  const [intent, queryEmbedding] = await Promise.all([
-    extractIntent(query),
-    embedQuery(query),
-  ])
+  // ── Step 1: Intent extraction + embedding (with graceful OpenAI fallback) ──
+  let intent = {
+    categoryTags: [] as string[],
+    industryContext: [] as string[],
+    summary: query,
+  }
+  let vectorCandidates: Array<{ agentId: string; similarity: number }> = []
 
-  // ── Step 2: Vector similarity search (top 50 candidates) ─────────────────
-  const vectorCandidates = await vectorSearch(queryEmbedding, 50)
+  try {
+    const [extractedIntent, queryEmbedding] = await Promise.all([
+      extractIntent(query),
+      embedQuery(query),
+    ])
+    intent = extractedIntent
+    vectorCandidates = await vectorSearch(queryEmbedding, 50)
+  } catch {
+    // OpenAI unavailable (quota, network) — fall back to keyword search
+    console.warn("[search] OpenAI unavailable, falling back to keyword search")
+    vectorCandidates = await keywordFallback(query, 50)
+  }
+
+  // If vector search also returned nothing, try keyword fallback
+  if (vectorCandidates.length === 0) {
+    vectorCandidates = await keywordFallback(query, 50)
+  }
 
   if (vectorCandidates.length === 0) {
     return {

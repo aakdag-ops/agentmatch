@@ -1,4 +1,3 @@
-version: "3.9"
 
 services:
   # ── PostgreSQL + pgvector ──────────────────────────────────────────────────
@@ -11,7 +10,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"          # exposed so you can connect with TablePlus / pgAdmin
+      - "5433:5432"          # exposed so you can connect with TablePlus / pgAdmin
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -41,7 +40,7 @@ services:
 
   # ── Database migrations + seed (runs once, then exits) ────────────────────
   migrate:
-    image: node:20-alpine
+    image: node:20-slim
     container_name: agentmatch-migrate
     working_dir: /app
     volumes:
@@ -49,12 +48,14 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/agentmatch
       DIRECT_URL: postgresql://postgres:postgres@db:5432/agentmatch
-    # apk adds postgresql-client for the psql constraint script
+    # apt-get adds postgresql-client for the psql constraint script
     command: >
       sh -c "
-        apk add --no-cache postgresql-client &&
+        apt-get update -qq && apt-get install -y --no-install-recommends postgresql-client &&
         npm ci --quiet &&
-        npx prisma migrate deploy &&
+        npx prisma generate &&
+        psql postgresql://postgres:postgres@db:5432/agentmatch -c 'CREATE EXTENSION IF NOT EXISTS vector;' &&
+        npx prisma db push --accept-data-loss &&
         psql postgresql://postgres:postgres@db:5432/agentmatch -f prisma/constraints.sql &&
         npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts &&
         npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seedAgents.ts
@@ -90,7 +91,7 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000 || exit 1"]
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
       interval: 10s
       timeout: 5s
       retries: 5
