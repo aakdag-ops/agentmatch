@@ -1,4 +1,4 @@
-import { getOpenAI, INTENT_MODEL } from "@/lib/openai"
+import { getAnthropic, INTENT_MODEL } from "@/lib/anthropic"
 
 export interface QueryIntent {
   categoryTags: string[]
@@ -22,21 +22,23 @@ Only populate fields with clear evidence from the query. Prefer empty arrays ove
 
 export async function extractIntent(query: string): Promise<QueryIntent> {
   try {
-    const response = await getOpenAI().chat.completions.create({
+    const response = await getAnthropic().messages.create({
       model: INTENT_MODEL,
+      system: SYSTEM_PROMPT,
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: query.slice(0, 500) }, // cap at 500 chars per FR-01
       ],
-      response_format: { type: "json_object" },
       temperature: 0,
       max_tokens: 300,
     })
 
-    const content = response.choices[0].message.content
+    const block = response.content[0]
+    const content = block.type === "text" ? block.text : null
     if (!content) throw new Error("Empty response from intent model")
 
-    const parsed = JSON.parse(content)
+    // Claude sometimes wraps JSON in markdown code fences — strip them
+    const jsonStr = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim()
+    const parsed = JSON.parse(jsonStr)
     return {
       categoryTags: Array.isArray(parsed.categoryTags) ? parsed.categoryTags : [],
       industryContext: Array.isArray(parsed.industryContext) ? parsed.industryContext : [],

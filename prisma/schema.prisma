@@ -126,9 +126,9 @@ model AgentEmbedding {
   id        String   @id @default(uuid()) @db.Uuid
   agentId   String   @unique @db.Uuid
 
-  // 1536-dimension vector for text-embedding-3-small
+  // 512-dimension vector for voyage-3-lite (Voyage AI)
   // Unsupported type — managed via raw SQL migrations
-  embedding Unsupported("vector(1536)")?
+  embedding Unsupported("vector(512)")?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

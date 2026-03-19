@@ -1,42 +1,64 @@
 import { PrismaClient } from "@prisma/client";
-import OpenAI from "openai";
+import { VoyageAIClient } from "voyageai";
 
 const db = new PrismaClient();
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const voyage = new VoyageAIClient({ apiKey: process.env.VOYAGE_API_KEY! });
+
+// Free tier: 3 RPM / 10K TPM. Batches of 5 agents (~2K tokens) every 22s stays safe.
+const BATCH_SIZE = 5;
+const BATCH_DELAY_MS = 22_000;
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 async function main() {
   const agents = await db.agent.findMany({ where: { status: "active" } });
-  console.log(`Embedding ${agents.length} agents...`);
-  for (const agent of agents) {
-    const caps = (agent.capabilities as Array<{ text: string }> | null) ?? [];
-    const weaks = (agent.weaknesses as Array<{ text: string }>) ?? [];
-    const text = [
-      agent.name,
-      agent.vendor,
-      agent.tagline,
-      agent.description.slice(0, 1200),
-      `Categories: ${agent.categoryTags.join(", ")}`,
-      `Industries: ${agent.industryTags.join(", ")}`,
-      `Capabilities: ${caps.map((c) => c.text).join("; ")}`,
-      `Limitations: ${weaks.map((w) => w.text).join("; ")}`,
-    ]
-      .filter(Boolean)
-      .join("\n");
+  console.log(`Embedding ${agents.length} agents in batches of ${BATCH_SIZE}...`);
 
-    const res = await openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input: text,
+  for (let start = 0; start < agents.length; start += BATCH_SIZE) {
+    const batch = agents.slice(start, start + BATCH_SIZE);
+    const texts = batch.map((agent) => {
+      const caps = (agent.capabilities as Array<{ text: string }> | null) ?? [];
+      const weaks = (agent.weaknesses as Array<{ text: string }>) ?? [];
+      return [
+        agent.name, agent.vendor, agent.tagline,
+        agent.description.slice(0, 600),
+        `Categories: ${agent.categoryTags.join(", ")}`,
+        `Capabilities: ${caps.map((c) => c.text).slice(0, 3).join("; ")}`,
+        `Limitations: ${weaks.map((w) => w.text).slice(0, 2).join("; ")}`,
+      ].filter(Boolean).join("\n");
     });
-    const embedding = res.data[0].embedding;
-    const vector = `[${embedding.join(",")}]`;
-    await db.$executeRaw`
-      INSERT INTO agent_embeddings (agent_id, embedding)
-      VALUES (${agent.id}::uuid, ${vector}::vector)
-      ON CONFLICT (agent_id) DO UPDATE SET embedding = EXCLUDED.embedding, updated_at = now()
-    `;
-    process.stdout.write(".");
+
+    const res = await voyage.embed({
+      model: "voyage-3-lite",
+      input: texts,
+      inputType: "document",
+    });
+
+    for (let i = 0; i < batch.length; i++) {
+      const agent = batch[i];
+      const embedding = res.data?.[i]?.embedding as number[] | undefined;
+      if (!embedding) throw new Error(`No embedding at batch index ${i}`);
+      const vector = `[${embedding.join(",")}]`;
+      await db.$executeRaw`
+        INSERT INTO agent_embeddings (id, "agentId", embedding, "createdAt", "updatedAt")
+        VALUES (gen_random_uuid(), ${agent.id}::uuid, ${vector}::vector, now(), now())
+        ON CONFLICT ("agentId") DO UPDATE SET embedding = EXCLUDED.embedding, "updatedAt" = now()
+      `;
+      process.stdout.write(".");
+    }
+
+    const done = Math.min(start + BATCH_SIZE, agents.length);
+    console.log(` [${done}/${agents.length}]`);
+
+    if (done < agents.length) {
+      process.stdout.write(`  waiting ${BATCH_DELAY_MS / 1000}s for rate limit... `);
+      await sleep(BATCH_DELAY_MS);
+    }
   }
-  console.log("\n✅ All embeddings generated!");
+
+  console.log(`\n✅ All ${agents.length} embeddings generated with Voyage AI!`);
   await db.$disconnect();
 }
 

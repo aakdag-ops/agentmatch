@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client"
-import { getOpenAI, EMBEDDING_MODEL } from "@/lib/openai"
+import { getVoyage, EMBEDDING_MODEL } from "@/lib/voyage"
 import { db } from "@/lib/db"
 import type { Agent } from "@prisma/client"
 
@@ -36,11 +36,14 @@ function agentToEmbeddingText(agent: Agent): string {
 }
 
 export async function generateEmbedding(text: string): Promise<number[]> {
-  const response = await getOpenAI().embeddings.create({
+  const response = await getVoyage().embed({
     model: EMBEDDING_MODEL,
     input: text,
+    inputType: "query",
   })
-  return response.data[0].embedding
+  const embedding = response.data?.[0]?.embedding
+  if (!embedding) throw new Error("No embedding returned from Voyage AI")
+  return embedding as number[]
 }
 
 /**
@@ -49,17 +52,25 @@ export async function generateEmbedding(text: string): Promise<number[]> {
  */
 export async function upsertAgentEmbedding(agent: Agent): Promise<void> {
   const text = agentToEmbeddingText(agent)
-  const embedding = await generateEmbedding(text)
+  const voyage = getVoyage()
+  const response = await voyage.embed({
+    model: EMBEDDING_MODEL,
+    input: text,
+    inputType: "document",
+  })
+  const embedding = response.data?.[0]?.embedding as number[] | undefined
+  if (!embedding) throw new Error("No embedding returned from Voyage AI")
+
   const vectorLiteral = `[${embedding.join(",")}]`
 
   await db.$executeRaw(
     Prisma.sql`
-      INSERT INTO agent_embeddings (id, agent_id, embedding, created_at, updated_at)
+      INSERT INTO agent_embeddings (id, "agentId", embedding, "createdAt", "updatedAt")
       VALUES (gen_random_uuid(), ${agent.id}::uuid, ${vectorLiteral}::vector, NOW(), NOW())
-      ON CONFLICT (agent_id)
+      ON CONFLICT ("agentId")
       DO UPDATE SET
-        embedding  = ${vectorLiteral}::vector,
-        updated_at = NOW()
+        embedding   = ${vectorLiteral}::vector,
+        "updatedAt" = NOW()
     `
   )
 }

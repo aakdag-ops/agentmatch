@@ -19,13 +19,13 @@ export async function vectorSearch(
 ): Promise<VectorCandidate[]> {
   const vectorLiteral = `[${queryEmbedding.join(",")}]`
 
-  const rows = await db.$queryRaw<Array<{ agent_id: string; similarity: number }>>(
+  const rows = await db.$queryRaw<Array<{ agentId: string; similarity: number }>>(
     Prisma.sql`
       SELECT
-        ae.agent_id::text,
+        ae."agentId"::text AS "agentId",
         (1 - (ae.embedding <=> ${vectorLiteral}::vector))::float AS similarity
       FROM agent_embeddings ae
-      JOIN agents a ON a.id = ae.agent_id
+      JOIN agents a ON a.id = ae."agentId"
       WHERE a.status = 'active'
         AND ae.embedding IS NOT NULL
       ORDER BY ae.embedding <=> ${vectorLiteral}::vector
@@ -34,7 +34,7 @@ export async function vectorSearch(
   )
 
   return rows.map((r) => ({
-    agentId: r.agent_id,
+    agentId: r.agentId,
     similarity: Number(r.similarity),
   }))
 }
