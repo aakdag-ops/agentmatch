@@ -1,11 +1,14 @@
 import { Resend } from "resend"
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 const FROM = process.env.EMAIL_FROM ?? "AgentMatch <onboarding@resend.dev>"
 const BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL ?? "https://agentmatch.io").trim()
 
 export async function sendVerificationEmail(to: string, token: string): Promise<void> {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("RESEND_API_KEY environment variable is not set")
+  }
+
+  const resend = new Resend(process.env.RESEND_API_KEY)
   const verifyUrl = `${BASE_URL}/api/auth/verify-email?token=${token}`
 
   await resend.emails.send({
