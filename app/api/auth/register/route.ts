@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server"
 import { hash } from "bcryptjs"
+import { randomBytes } from "crypto"
 import { z } from "zod"
 import { db } from "@/lib/db"
+import { sendVerificationEmail } from "@/lib/email"
 
 const RegisterSchema = z.object({
   email: z.string().email(),
@@ -45,7 +47,7 @@ export async function POST(request: Request) {
         email: normalisedEmail,
         hashedPassword,
         name: name ?? null,
-        emailVerified: false, // Phase 2: send verification email via Resend
+        emailVerified: false,
       },
       select: {
         id: true,
@@ -55,6 +57,22 @@ export async function POST(request: Request) {
         createdAt: true,
       },
     })
+
+    // Create verification token and send email (non-blocking — don't fail registration if email fails)
+    try {
+      const token = randomBytes(32).toString("hex")
+      await db.emailVerificationToken.create({
+        data: {
+          userId: user.id,
+          token,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+        },
+      })
+      await sendVerificationEmail(normalisedEmail, token)
+    } catch (emailError) {
+      console.error("[register] Failed to send verification email:", emailError)
+      // Continue — user is created, they can request a new email later
+    }
 
     return NextResponse.json({ user }, { status: 201 })
   } catch (error) {

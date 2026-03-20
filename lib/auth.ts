@@ -85,14 +85,16 @@ export const authOptions: NextAuthOptions = {
         // Persist role and id into the token on first sign-in
         token.id = user.id
         token.role = (user as { role?: string }).role ?? "user"
-      } else if (token.id) {
-        // Re-hydrate role on subsequent requests (role may have changed)
+      }
+      // Re-hydrate role + emailVerified on every request (may have changed)
+      if (token.id) {
         const dbUser = await db.user.findUnique({
           where: { id: token.id as string },
-          select: { role: true },
+          select: { role: true, emailVerified: true },
         })
         if (dbUser) {
           token.role = dbUser.role
+          token.emailVerified = dbUser.emailVerified
         }
       }
       return token
@@ -102,6 +104,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string
         session.user.role = token.role as string
+        session.user.emailVerified = token.emailVerified ?? false
       }
       return session
     },
