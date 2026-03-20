@@ -5,7 +5,7 @@ import NavBar from "@/components/NavBar"
 import Footer from "@/components/Footer"
 import CompareBar from "@/components/CompareBar"
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "https://agentmatch.io"
+const BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL ?? "https://agentmatch.io").trim()
 
 export const metadata: Metadata = {
   title: {
