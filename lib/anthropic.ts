@@ -13,4 +13,5 @@ export function getAnthropic(): Anthropic {
   return _client
 }
 
+// claude-haiku-4-5 = fastest + cheapest Claude model, ideal for structured extraction
 export const INTENT_MODEL = "claude-haiku-4-5" as const

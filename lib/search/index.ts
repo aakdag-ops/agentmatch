@@ -1,8 +1,8 @@
 /**
  * AgentMatch Search Pipeline Orchestrator
  *
- * Step 1: Extract intent from query (GPT-4o-mini)
- * Step 2: Embed query (text-embedding-3-small)
+ * Step 1: Extract intent from query (Claude Haiku)
+ * Step 2: Embed query (Voyage AI voyage-3-lite)
  * Step 3: Vector similarity search (pgvector, top 50)
  * Step 4: Fetch full agent records for candidates
  * Step 5: Apply client-side filters (industry, pricing, size, etc.)
@@ -99,7 +99,7 @@ function averageScore(agent: Agent): number {
   return scores.reduce((a, b) => a + b, 0) / scores.length
 }
 
-// ── Keyword fallback (used when OpenAI is unavailable) ──────────────────────
+// ── Keyword fallback (used when AI services are unavailable) ────────────────
 async function keywordFallback(
   query: string,
   topN: number
@@ -152,8 +152,8 @@ export async function search(req: SearchRequest): Promise<SearchResponse> {
     intent = extractedIntent
     vectorCandidates = await vectorSearch(queryEmbedding, 50)
   } catch {
-    // OpenAI unavailable (quota, network) — fall back to keyword search
-    console.warn("[search] OpenAI unavailable, falling back to keyword search")
+    // AI unavailable (quota, network) — fall back to keyword search
+    console.warn("[search] AI unavailable, falling back to keyword search")
     vectorCandidates = await keywordFallback(query, 50)
   }
 

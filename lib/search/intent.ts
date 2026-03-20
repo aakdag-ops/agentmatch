@@ -36,9 +36,11 @@ export async function extractIntent(query: string): Promise<QueryIntent> {
     const content = block.type === "text" ? block.text : null
     if (!content) throw new Error("Empty response from intent model")
 
-    // Claude sometimes wraps JSON in markdown code fences — strip them
-    const jsonStr = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim()
-    const parsed = JSON.parse(jsonStr)
+    // Extract the first JSON object from the response — Claude sometimes adds
+    // explanatory text before/after the JSON block or wraps it in code fences
+    const jsonMatch = content.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) throw new Error("No JSON object found in intent response")
+    const parsed = JSON.parse(jsonMatch[0])
     return {
       categoryTags: Array.isArray(parsed.categoryTags) ? parsed.categoryTags : [],
       industryContext: Array.isArray(parsed.industryContext) ? parsed.industryContext : [],
