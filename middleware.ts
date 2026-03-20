@@ -15,6 +15,9 @@ export default withAuth(
     return NextResponse.next()
   },
   {
+    pages: {
+      signIn: "/login",
+    },
     callbacks: {
       // Only run the middleware function above if user is authenticated
       // For unauthenticated users, NextAuth redirects to signIn page automatically
