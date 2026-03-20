@@ -25,6 +25,9 @@ const nextConfig = {
   // Required for Docker — produces a standalone server.js bundle
   output: "standalone",
 
+  // Prevent Next.js from bundling Prisma during build — it must run server-side only
+  serverExternalPackages: ["@prisma/client", "bcryptjs"],
+
   images: {
     // Allow any remote image host (agent logos sourced from vendors)
     remotePatterns: [
