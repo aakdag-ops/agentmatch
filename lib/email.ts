@@ -1,7 +1,7 @@
 import { Resend } from "resend"
 
-const FROM = process.env.EMAIL_FROM ?? "AgentMatch <onboarding@resend.dev>"
-const BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL ?? "https://agentmatch.io").trim()
+const FROM = process.env.EMAIL_FROM ?? "AgentMatch <info@unagent.ai>"
+const BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL ?? "https://unagent.ai").trim()
 
 export async function sendVerificationEmail(to: string, token: string): Promise<void> {
   if (!process.env.RESEND_API_KEY) {

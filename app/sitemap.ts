@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next"
 import { db } from "@/lib/db"
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "https://agentmatch.io"
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "https://unagent.ai"
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Static pages

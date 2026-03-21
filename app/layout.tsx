@@ -6,7 +6,7 @@ import Footer from "@/components/Footer"
 import CompareBar from "@/components/CompareBar"
 import VerificationBanner from "@/components/VerificationBanner"
 
-const BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL ?? "https://agentmatch.io").trim()
+const BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL ?? "https://unagent.ai").trim()
 
 export const metadata: Metadata = {
   title: {

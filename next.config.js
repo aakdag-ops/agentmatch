@@ -79,8 +79,8 @@ const nextConfig = {
       // www → apex
       {
         source: "/:path*",
-        has: [{ type: "host", value: "www.agentmatch.io" }],
-        destination: "https://agentmatch.io/:path*",
+        has: [{ type: "host", value: "www.unagent.ai" }],
+        destination: "https://unagent.ai/:path*",
         permanent: true,
       },
     ]

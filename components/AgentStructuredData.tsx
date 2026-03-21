@@ -41,7 +41,7 @@ const PRICING_MAP: Record<string, string> = {
 
 export function AgentStructuredData({ agent }: { agent: Agent }) {
   const avg = avgScore(agent)
-  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "https://agentmatch.io"
+  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "https://unagent.ai"
 
   const schema: Record<string, unknown> = {
     "@context": "https://schema.org",
