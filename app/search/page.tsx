@@ -6,8 +6,10 @@ import { useSession } from "next-auth/react"
 import SearchInput from "@/components/SearchInput"
 import AgentCard from "@/components/AgentCard"
 import FilterSidebar from "@/components/FilterSidebar"
+import SolutionMatchBanner from "@/components/SolutionMatchBanner"
 import type { SearchFilters } from "@/lib/search/index"
 import type { Agent } from "@prisma/client"
+import type { Solution } from "@/lib/solutions"
 import { useAnalytics } from "@/lib/useAnalytics"
 
 interface SearchResult {
@@ -31,6 +33,7 @@ function SearchPageContent() {
   const [error, setError] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
+  const [solutionMatch, setSolutionMatch] = useState<(Solution & { confidence: number; reason: string }) | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
 
@@ -41,18 +44,27 @@ function SearchPageContent() {
       abortRef.current = new AbortController()
       setLoading(true)
       setError(null)
+      setSolutionMatch(null)
       try {
-        const res = await fetch("/api/search", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query, filters: activeFilters }),
-          signal: abortRef.current.signal,
-        })
+        const [res, matchRes] = await Promise.all([
+          fetch("/api/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query, filters: activeFilters }),
+            signal: abortRef.current.signal,
+          }),
+          fetch("/api/solutions/match", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query }),
+          }).then((r) => r.json()).catch(() => ({ matched: null })),
+        ])
         const data = await res.json()
         if (!res.ok) throw new Error(data.error ?? "Search failed")
         setResults(data.results ?? [])
         setTotal(data.total ?? 0)
         setIntent(data.intent ?? null)
+        setSolutionMatch(matchRes.matched ?? null)
         track({ event: "search_submitted", query, resultCount: data.total ?? 0 })
       } catch (e: unknown) {
         if ((e as Error).name !== "AbortError") {
@@ -174,6 +186,11 @@ function SearchPageContent() {
                 </button>
               </div>
             </div>
+
+            {/* Solution match banner */}
+            {solutionMatch && !loading && (
+              <SolutionMatchBanner solution={solutionMatch} />
+            )}
 
             {/* Intent tags */}
             {intent?.categoryTags && intent.categoryTags.length > 0 && (

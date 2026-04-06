@@ -14,7 +14,8 @@
     "db:studio": "prisma studio",
     "db:seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts",
     "db:seed:agents": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seedAgents.ts",
-    "db:setup": "prisma migrate deploy && psql $DATABASE_URL -f prisma/constraints.sql"
+    "db:setup": "prisma migrate deploy && psql $DATABASE_URL -f prisma/constraints.sql",
+    "db:push:prod": "dotenv -e .env.production.local -- prisma db push"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
@@ -36,6 +37,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.4.20",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^8",
     "eslint-config-next": "14.2.29",
     "postcss": "^8.4.47",

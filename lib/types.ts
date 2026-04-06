@@ -47,12 +47,12 @@ export const PRICING_COLORS: Record<string, string> = {
 }
 
 export const SUGGESTION_PROMPTS = [
-  "Automate customer support email replies",
-  "Extract data from PDF invoices",
-  "Generate sales outreach sequences",
-  "Schedule meetings from natural language",
-  "Summarise long research documents",
-  "Write marketing copy for social media",
+  "We spend hours a day answering customer emails",
+  "Our lawyers can't keep up with billing and invoicing",
+  "We need to source raw materials from overseas suppliers",
+  "Hotel booking and guest communication is too manual",
+  "Scheduling doctor night shifts is a monthly nightmare",
+  "We organize trips for elderly people and coordination is chaotic",
 ]
 
 export const SCORE_DIMENSIONS = [

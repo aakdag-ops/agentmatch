@@ -39,6 +39,12 @@ export default function NavBar() {
             Browse
           </Link>
           <Link
+            href="/solutions"
+            className="text-sm text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            Solutions
+          </Link>
+          <Link
             href="/submit"
             className="text-sm text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
           >
